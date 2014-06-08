@@ -23,7 +23,12 @@ If you want to use your battery status just change `battery.GCW_BATTERY_FILE = '
 
 ### Screenshot
 
-![app][1]
+![full][1]
 
+![half][2]
+
+![empty][3]
 
   [1]: http://i.imgur.com/ZS8tE4a.png
+  [2]: http://i.imgur.com/zpxafTy.png
+  [3]: http://i.imgur.com/eDTTt4G.png
