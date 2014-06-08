@@ -32,3 +32,7 @@ If you want to use your battery status just change `battery.GCW_BATTERY_FILE = '
   [1]: http://i.imgur.com/ZS8tE4a.png
   [2]: http://i.imgur.com/zpxafTy.png
   [3]: http://i.imgur.com/eDTTt4G.png
+
+### Note
+
+Status is aways Unknown. For some no reason it's never updated.
