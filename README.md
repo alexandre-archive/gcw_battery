@@ -24,4 +24,8 @@ If you want to use your battery status just change `battery.GCW_BATTERY_FILE = '
 ![app][1]
 
 
+### Note
+
+Status is aways Unknown. For some no reason it's never updated.
+
   [1]: http://i.imgur.com/ZS8tE4a.png
