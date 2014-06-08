@@ -1,0 +1,8 @@
+[Desktop Entry]
+
+Type=Application
+Name=Battery
+Comment=Battery Status
+Exec=battery.py
+Icon=battery
+Categories=applications;
