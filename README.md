@@ -13,6 +13,8 @@ GCW Graphic battery application using PyGame
 
 ### Testing
 
+On your PC:
+
 `python test\test.py`
 
 If you want to use your battery status just change `battery.GCW_BATTERY_FILE = 'uevent'` to `GCW_BATTERY_FILE = '/sys/class/power_supply/BAT0/uevent'`, where `0` is your battery number.
