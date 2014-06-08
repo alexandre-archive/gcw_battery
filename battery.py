@@ -122,7 +122,7 @@ def main():
                 c = float(capacity)
 
                 if c > 0:
-                    color = COLOR_GREEN if c > 65 else (COLOR_YELLOW if capacity > 25 else COLOR_RED)
+                    color = COLOR_GREEN if c > 65 else (COLOR_YELLOW if c > 25 else COLOR_RED)
                     size = 160 - ((120 * c) / 100)
                     size_c = size if size > 60 else 60
 
