@@ -6,6 +6,7 @@ GCW Graphic battery application using PyGame
 
 - Python 2.7
 - PyGame
+- GCW Zero Toolchain
 
 ### Build
 
