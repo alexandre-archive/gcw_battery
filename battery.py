@@ -29,6 +29,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import pyinotify
 import pygame
 import pygame.locals
 import sys
@@ -58,7 +59,7 @@ STATUS     = 'POWER_SUPPLY_STATUS'
 HEALTH     = 'POWER_SUPPLY_HEALTH'
 CAPACITY   = 'POWER_SUPPLY_CAPACITY'
 
-FPS = 30
+FPS = 1
 
 GCW_BATTERY_FILE = '/sys/class/power_supply/battery/uevent'
 
@@ -83,115 +84,140 @@ def parse_file():
 
     return data
 
-def main():
-    log('Starting GCW Battery...')
-    pygame.init()
-    screen = pygame.display.set_mode((320, 240))
-    pygame.display.set_caption('GCW Battery')
-    pygame.mouse.set_visible(0)
+class HandleEvent(pyinotify.ProcessEvent):
 
-    background = pygame.Surface(screen.get_size())
-    background = background.convert()
+    def my_init(self, func):
+        self.func = func
 
-    clock = pygame.time.Clock()
+    def process_default(self, event):
+        if self.func and callable(self.func):
+            self.func()
 
-    while 1:
-        clock.tick(FPS)
+class App:
 
-        # Handle input events
-        for event in pygame.event.get():
-            if event.type == pygame.locals.QUIT or\
-               (event.type == pygame.locals.KEYDOWN and event.key == pygame.locals.K_ESCAPE) or\
-               (event.type == pygame.locals.KEYDOWN and event.key == BUTTON_START):
-                log('Ending GCW Battery.')
-                return
+    def __init__(self):
+        log('Starting GCW Battery...')
 
-        background.fill(COLOR_BLACK)
+        self.capacity = None
+        self.status = None
+        self.health = None
 
-        battery = parse_file()
+        self._update()
 
-        if battery:
+        # Configure pygame.
+        pygame.init()
+        self.screen = pygame.display.set_mode((320, 240))
+        pygame.display.set_caption('GCW Battery')
+        pygame.mouse.set_visible(0)
 
-            # TODO:
-            # A better way is use a layer to dispaly text.
-            # So we don't need to redraw all screen.
+        self.background = pygame.Surface(self.screen.get_size())
+        self.background = self.background.convert()
 
-            capacity = battery.get(CAPACITY)
+        self.clock = pygame.time.Clock()
 
-            if capacity != None:
-                c = float(capacity)
+        # Configure notifier.
+        wm = pyinotify.WatchManager()
+        wm.add_watch(GCW_BATTERY_FILE, pyinotify.IN_MODIFY | pyinotify.IN_ACCESS, self._update)
+        self.notifier = pyinotify.ThreadedNotifier(wm)
 
-                if c > 0:
-                    color = COLOR_GREEN if c > 65 else (COLOR_YELLOW if c > 25 else COLOR_RED)
-                    size = 160 - ((120 * c) / 100)
-                    size_c = size if size > 60 else 60
+    def _update(self, event=None):
+        log('Updating battery info...')
+        f = parse_file()
+        self.capacity = f.get(CAPACITY)
+        self.status = f.get(STATUS)
+        self.health = f.get(HEALTH)
 
-                    # Battery body
-                    pygame.draw.polygon(background, color, ((120, size_c), (120, 160), (200, 160), (200, size_c)))
+    def loop(self):
+        self.notifier.start()
 
-                    if size >= 40 and size <= 60:
-                        # Battery connector
-                        pygame.draw.polygon(background, color, ((140, size), (140, 60), (180, 60), (180, size)))
+        while 1:
+            # Handle input events
+            for event in pygame.event.get():
+                if event.type == pygame.locals.QUIT or\
+                   (event.type == pygame.locals.KEYDOWN and event.key == pygame.locals.K_ESCAPE) or\
+                   (event.type == pygame.locals.KEYDOWN and event.key == BUTTON_START):
+                    self.notifier.stop()
+                    log('Ending GCW Battery.')
+                    return 0
 
-            border_width = 3
+            self._draw()
 
-            # pygame.draw.lines(Surface, color, closed, pointlist, width=1) -> Rect
-            # (x , y)
+            self.clock.tick(FPS)
 
-            # Left
-            pygame.draw.lines(background, COLOR_WHITE, False, [(120, 60), (120, 160)], border_width)
-            # Right
-            pygame.draw.lines(background, COLOR_WHITE, False, [(200, 60), (200, 160)], border_width)
-            # Bottom
-            pygame.draw.lines(background, COLOR_WHITE, False, [(120, 160), (200, 160)], border_width)
-            # Top
-            pygame.draw.lines(background, COLOR_WHITE, False, [(120, 60), (140, 60)], border_width)
-            pygame.draw.lines(background, COLOR_WHITE, False, [(180, 60), (200, 60)], border_width)
-            # Left
-            pygame.draw.lines(background, COLOR_WHITE, False, [(140, 60), (140, 40)], border_width)
-            # Right
-            pygame.draw.lines(background, COLOR_WHITE, False, [(180, 60), (180, 40)], border_width)
-            # Bottom
-            pygame.draw.lines(background, COLOR_WHITE, False, [(140, 40), (180, 40)], border_width)
+    def _draw(self):
+        # TODO:
+        # A better way is use a layer to dispaly text.
+        # So we don't need to redraw all screen.
+
+        self.background.fill(COLOR_BLACK)
+
+        if self.capacity != None:
+            c = float(self.capacity)
+
+            if c > 0:
+                color = COLOR_GREEN if c > 65 else (COLOR_YELLOW if c > 25 else COLOR_RED)
+                size = 160 - ((120 * c) / 100)
+                size_c = size if size > 60 else 60
+
+                # Battery body
+                pygame.draw.polygon(self.background, color, ((120, size_c), (120, 160), (200, 160), (200, size_c)))
+
+                if size >= 40 and size <= 60:
+                    # Battery connector
+                    pygame.draw.polygon(self.background, color, ((140, size), (140, 60), (180, 60), (180, size)))
+
+        border_width = 3
+
+        # pygame.draw.lines(Surface, color, closed, pointlist, width=1) -> Rect
+        # (x , y)
+
+        # Left
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (120, 160)], border_width)
+        # Right
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(200, 60), (200, 160)], border_width)
+        # Bottom
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 160), (200, 160)], border_width)
+        # Top
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (140, 60)], border_width)
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (200, 60)], border_width)
+        # Left
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 60), (140, 40)], border_width)
+        # Right
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (180, 40)], border_width)
+        # Bottom
+        pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 40), (180, 40)], border_width)
 
         if pygame.font:
-            font = pygame.font.SysFont("Monospace", 36)
+            font36 = pygame.font.SysFont("Monospace", 36) or pygame.font.Font(None, 36)
+            font28 = pygame.font.SysFont("Monospace", 28) or pygame.font.Font(None, 28)
 
-            if not font:
-                log("Can't load Monospace font.")
-                font = pygame.font.Font(None, 36)
+            if self.capacity != None:
+                capacity = str(self.capacity) + '%'
 
-            if battery:
-                capacity = str(capacity) + '%' if capacity != None else 'Unknown'
-
-                text = font.render(capacity, 1, COLOR_WHITE)
+                text = font36.render(capacity, 1, COLOR_WHITE)
                 pos = text.get_rect(centerx=160, centery=110)
-                background.blit(text, pos)
+                self.background.blit(text, pos)
 
-                status = battery.get(STATUS)
-
-                if status:
-                    status = 'Status: ' + status
-                    text = font.render(status, 1, COLOR_WHITE)
+                if self.status:
+                    status = 'Status: ' + self.status
+                    text = font28.render(status, 1, COLOR_WHITE)
                     pos = text.get_rect(centerx=160, centery=185)
-                    background.blit(text, pos)
+                    self.background.blit(text, pos)
 
-                health = battery.get(HEALTH)
-
-                if health:
-                    health = 'Health: ' + health
-                    text = font.render(health, 1, COLOR_WHITE)
+                if self.health:
+                    health = 'Health: ' + self.health
+                    text = font28.render(health, 1, COLOR_WHITE)
                     pos = text.get_rect(centerx=160, centery=220)
-                    background.blit(text, pos)
+                    self.background.blit(text, pos)
             else:
-                font = pygame.font.Font(None, 18)
+                font = pygame.font.SysFont("Monospace", 18) or pygame.font.Font(None, 18)
                 text = font.render("Error: Can't load battery status", 1, COLOR_WHITE)
                 pos = text.get_rect(centerx=160, centery=110)
-                background.blit(text, pos)
+                self.background.blit(text, pos)
 
-        screen.blit(background, (0, 0))
+        self.screen.blit(self.background, (0, 0))
         pygame.display.flip()
 
 if __name__ == '__main__':
-    main()
+    sys.exit(App().loop())
 
