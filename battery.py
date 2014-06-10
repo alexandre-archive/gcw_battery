@@ -29,7 +29,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import pyinotify
 import pygame
 import pygame.locals
 import sys
@@ -84,19 +83,12 @@ def parse_file():
 
     return data
 
-class HandleEvent(pyinotify.ProcessEvent):
-
-    def my_init(self, func):
-        self.func = func
-
-    def process_default(self, event):
-        if self.func and callable(self.func):
-            self.func()
-
 class App:
 
     def __init__(self):
         log('Starting GCW Battery...')
+
+        self.interval = 30
 
         self.capacity = None
         self.status = None
@@ -115,12 +107,15 @@ class App:
 
         self.clock = pygame.time.Clock()
 
-        # Configure notifier.
-        wm = pyinotify.WatchManager()
-        wm.add_watch(GCW_BATTERY_FILE, pyinotify.IN_MODIFY | pyinotify.IN_ACCESS, self._update)
-        self.notifier = pyinotify.ThreadedNotifier(wm)
-
     def _update(self, event=None):
+        # HACk: pyinotify doesn't work on GCW.
+        # Find a better way to do this.
+        # Read file after 30 seconds.
+        if self.interval < 30:
+            self.interval += 1
+            return
+
+        interval = 0
         log('Updating battery info...')
         f = parse_file()
         self.capacity = f.get(CAPACITY)
@@ -128,7 +123,6 @@ class App:
         self.health = f.get(HEALTH)
 
     def loop(self):
-        self.notifier.start()
 
         while 1:
             # Handle input events
@@ -136,10 +130,10 @@ class App:
                 if event.type == pygame.locals.QUIT or\
                    (event.type == pygame.locals.KEYDOWN and event.key == pygame.locals.K_ESCAPE) or\
                    (event.type == pygame.locals.KEYDOWN and event.key == BUTTON_START):
-                    self.notifier.stop()
                     log('Ending GCW Battery.')
                     return 0
 
+            self._update()
             self._draw()
 
             self.clock.tick(FPS)
@@ -166,26 +160,26 @@ class App:
                     # Battery connector
                     pygame.draw.polygon(self.background, color, ((140, size), (140, 60), (180, 60), (180, size)))
 
-        border_width = 3
+            border_width = 3
 
-        # pygame.draw.lines(Surface, color, closed, pointlist, width=1) -> Rect
-        # (x , y)
+            # pygame.draw.lines(Surface, color, closed, pointlist, width=1) -> Rect
+            # (x , y)
 
-        # Left
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (120, 160)], border_width)
-        # Right
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(200, 60), (200, 160)], border_width)
-        # Bottom
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 160), (200, 160)], border_width)
-        # Top
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (140, 60)], border_width)
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (200, 60)], border_width)
-        # Left
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 60), (140, 40)], border_width)
-        # Right
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (180, 40)], border_width)
-        # Bottom
-        pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 40), (180, 40)], border_width)
+            # Left
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (120, 160)], border_width)
+            # Right
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(200, 60), (200, 160)], border_width)
+            # Bottom
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 160), (200, 160)], border_width)
+            # Top
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(120, 60), (140, 60)], border_width)
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (200, 60)], border_width)
+            # Left
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 60), (140, 40)], border_width)
+            # Right
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(180, 60), (180, 40)], border_width)
+            # Bottom
+            pygame.draw.lines(self.background, COLOR_WHITE, False, [(140, 40), (180, 40)], border_width)
 
         if pygame.font:
             font36 = pygame.font.SysFont("Monospace", 36) or pygame.font.Font(None, 36)
